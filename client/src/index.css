@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  /* AMU colors */
+  --color-amu-primary: #7A1C1C;
+  --color-amu-secondary: #5A0F0F;
+  --color-amu-accent: #C98F8F;
+
+  /* LIGHT MODE */
+  --color-light-bg: #FAFAFA;
+  --color-light-card: #FFFFFF;
+  --color-light-text: #2E2E2E;
+  --color-light-border: #E5E5E5;
+
+  /* DARK MODE */
+  --color-dark-bg: #121212;
+  --color-dark-card: #1E1E1E;
+  --color-dark-text: #EAEAEA;
+  --color-dark-border: #2A2A2A;
+}
+
+body {
+  background-color: var(--color-light-bg);
+  color: var(--color-light-text);
+}
+
+.dark body {
+  background-color: var(--color-dark-bg);
+  color: var(--color-dark-text);
+}
+
+/* Used by remote cursor overlay widgets injected via addOverlayWidget */
+@keyframes blink-cursor {
+  0%,
+  100% { opacity: 1; }
+  50%  { opacity: 0; }
+}
