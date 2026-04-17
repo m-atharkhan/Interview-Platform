@@ -8,9 +8,9 @@ import useAuth from "../hooks/useAuth";
 
 const languages = [
   { label: "JavaScript", value: "javascript" },
-  { label: "Python",     value: "python"     },
-  { label: "Java",       value: "java"        },
-  { label: "C++",        value: "cpp"         }
+  { label: "Python",     value: "python"     }
+  // { label: "Java",       value: "java"        },
+  // { label: "C++",        value: "cpp"         }
 ];
 
 export const CURSOR_COLORS = [

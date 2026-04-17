@@ -13,6 +13,7 @@ import {
   FaExclamationCircle
 } from "react-icons/fa";
 import { useNavigate, useParams } from "react-router-dom";
+import { FiArrowLeft, FiGrid } from "react-icons/fi";
 
 const LANGUAGES = ["javascript", "python", "java", "cpp"];
 
@@ -206,11 +207,24 @@ export default function CreateQuestion() {
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg">
 
       {/* HEADER */}
-      <header className="border-b border-light-border dark:border-dark-border sticky top-0 z-10 bg-light-bg/80 dark:bg-dark-bg/80 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-lg font-semibold text-light-text dark:text-dark-text">
-            {id ? "Edit Question" : "Create Interview Question"}
-          </h1>
+      <header className="sticky top-0 z-10 bg-light-card/90 dark:bg-dark-card/90 backdrop-blur-md border-b border-light-border dark:border-dark-border">
+        <div className="max-w-5xl mx-auto px-6 h-[58px] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-light-border/60 dark:hover:bg-dark-border/60 transition-colors text-light-muted dark:text-dark-muted"
+            >
+              <FiArrowLeft size={15} />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amu-primary flex items-center justify-center shadow-sm shadow-amu-primary/30">
+                <FiGrid size={13} className="text-white" />
+              </div>
+              <span className="text-[15px] font-semibold">
+                {id ? "Edit Question" : "Create Question"}
+              </span>
+            </div>
+          </div>
           <ThemeToggle />
         </div>
       </header>

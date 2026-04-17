@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { FaClock, FaSignOutAlt } from "react-icons/fa";
+import { FiGrid } from "react-icons/fi";
 import CodeEditor, { getColorForId } from "../components/CodeEditor";
 import api from "../api/axios";
 import socket from "../socket/socket";
@@ -12,7 +13,6 @@ import QuestionPanel from "../components/QuestionPanel";
 import VideoPanel from "../components/VideoPanel";
 
 export default function InterviewRoom() {
-
   const { roomId } = useParams();
   const navigate   = useNavigate();
   const { user }   = useAuth();
@@ -66,71 +66,44 @@ export default function InterviewRoom() {
     fetchInterview();
   }, []);
 
-  /* ── socket join ─────────────────────────────────────────────────
-     Interviewer: joins immediately → set approved right away
-     Candidate:   sends request → waits for join-approved event
-  ─────────────────────────────────────────────────────────────── */
   useEffect(() => {
     if (!user) return;
-
     if (user.role === "interviewer") {
       socket.emit("join-as-host", { roomId, user });
       setIsApproved(true);
     } else {
       socket.emit("request-join", { roomId, user });
-      toast("Waiting for interviewer approval...");
+      toast("Waiting for interviewer approval…");
     }
   }, [user]);
 
   useEffect(() => {
-    const onParticipants  = (list) => setParticipants(list);
-
-    const onJoinRequest   = (req) => {
-      setRequests((prev) => {
-        const exists = prev.some((r) => r.socketId === req.socketId);
-        return exists ? prev : [...prev, req];
-      });
+    const onParticipants   = (list) => setParticipants(list);
+    const onJoinRequest    = (req) => {
+      setRequests((prev) => prev.some((r) => r.socketId === req.socketId) ? prev : [...prev, req]);
     };
+    const onJoinApproved   = () => { toast.success("Approved to join interview"); setIsApproved(true); };
+    const onJoinRejected   = () => { toast.error("Join rejected"); navigate("/dashboard"); };
+    const onInterviewEnded = () => { toast("Interview ended by the interviewer."); navigate("/dashboard"); };
 
-    // FIX: setIsApproved(true) was missing here — candidate never triggered video join
-    const onJoinApproved  = () => {
-      toast.success("Approved to join interview");
-      setIsApproved(true);
-    };
-
-    const onJoinRejected  = () => {
-      toast.error("Join rejected");
-      navigate("/dashboard");
-    };
-
-    const onInterviewEnded = () => {
-      toast("This interview has been ended by the interviewer.");
-      navigate("/dashboard");
-    };
-
-    socket.on("participants",   onParticipants);
-    socket.on("join-request",   onJoinRequest);
-    socket.on("join-approved",  onJoinApproved);
-    socket.on("join-rejected",  onJoinRejected);
+    socket.on("participants",    onParticipants);
+    socket.on("join-request",    onJoinRequest);
+    socket.on("join-approved",   onJoinApproved);
+    socket.on("join-rejected",   onJoinRejected);
     socket.on("interview-ended", onInterviewEnded);
 
     return () => {
-      socket.off("participants",  onParticipants);
-      socket.off("join-request",  onJoinRequest);
-      socket.off("join-approved", onJoinApproved);
-      socket.off("join-rejected", onJoinRejected);
+      socket.off("participants",    onParticipants);
+      socket.off("join-request",    onJoinRequest);
+      socket.off("join-approved",   onJoinApproved);
+      socket.off("join-rejected",   onJoinRejected);
       socket.off("interview-ended", onInterviewEnded);
     };
   }, []);
 
   useEffect(() => {
     if (!interview?.startedAt) return;
-    const update = () => {
-      const diff = Math.floor(
-        (Date.now() - new Date(interview.startedAt).getTime()) / 1000
-      );
-      setSeconds(diff);
-    };
+    const update = () => setSeconds(Math.floor((Date.now() - new Date(interview.startedAt).getTime()) / 1000));
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
@@ -152,13 +125,10 @@ export default function InterviewRoom() {
     setRequests((prev) => prev.filter((r) => r.socketId !== req.socketId));
   };
 
-  const leaveInterview = () => {
-    socket.emit("leave-room", { roomId });
-    navigate("/dashboard");
-  };
+  const leaveInterview = () => { socket.emit("leave-room", { roomId }); navigate("/dashboard"); };
 
   const endInterview = async () => {
-  try {
+    try {
       await api.patch(`/interviews/${roomId}/end`);
       socket.emit("end-interview", { roomId });
       toast.success("Interview ended");
@@ -178,30 +148,38 @@ export default function InterviewRoom() {
   if (!interview) return null;
 
   return (
-    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col">
+    <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col text-light-text dark:text-dark-text">
 
       <VideoPanel roomId={roomId} user={user} isApproved={isApproved} />
 
-      <header className="border-b border-light-border dark:border-dark-border">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-lg font-semibold">Interview Room — {roomId}</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <FaClock />
-              {formatTime()}
+      {/* HEADER */}
+      <header className="sticky top-0 z-10 bg-light-card/90 dark:bg-dark-card/90 backdrop-blur-md border-b border-light-border dark:border-dark-border flex-shrink-0">
+        <div className="max-w-full px-5 h-[54px] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-md bg-amu-primary flex items-center justify-center">
+              <FiGrid size={11} className="text-white" />
+            </div>
+            <span className="text-[13px] font-semibold text-light-text dark:text-dark-text">
+              Room <span className="text-light-muted dark:text-dark-muted font-normal">· {roomId}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-light-border/40 dark:bg-dark-border/40 text-[12px] text-light-muted dark:text-dark-muted">
+              <FaClock size={10} />
+              <span className="font-mono">{formatTime()}</span>
             </div>
             <ThemeToggle />
             <button
               onClick={leaveInterview}
-              className="flex items-center gap-2 bg-amu-primary text-white px-3 py-2 rounded-lg"
+              className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg border border-light-border dark:border-dark-border text-light-muted dark:text-dark-muted hover:text-light-text dark:hover:text-dark-text hover:border-amu-accent/50 transition-all"
             >
-              <FaSignOutAlt />
-              Leave
+              <FaSignOutAlt size={10} /> Leave
             </button>
             {user?.role === "interviewer" && (
               <button
                 onClick={endInterview}
-                className="flex items-center gap-2 bg-red-600 text-white px-3 py-2 rounded-lg"
+                className="flex items-center gap-1.5 text-[12px] font-medium px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
               >
                 End Interview
               </button>
@@ -210,15 +188,27 @@ export default function InterviewRoom() {
         </div>
       </header>
 
-      <main className="flex flex-1">
-        <div className="flex-1 p-6">
+      {/* MAIN LAYOUT */}
+      <main className="flex flex-1 overflow-hidden">
 
+        {/* LEFT: Editor area */}
+        <div className="flex-1 flex flex-col overflow-auto p-5 gap-4">
           {user?.role === "interviewer" && (
-            <div className="mt-4 mb-2">
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-light-muted dark:text-dark-muted mb-1.5">
+                Select Question
+              </label>
               <select
                 value={selectedQuestion?._id ?? ""}
                 onChange={(e) => handleQuestionChange(e.target.value)}
-                className="px-3 py-2 border border-light-border dark:border-dark-border rounded-md text-sm bg-white dark:bg-dark-card text-light-text dark:text-dark-text"
+                className="
+                  px-3 py-2 rounded-lg text-[12px]
+                  border border-light-border dark:border-dark-border
+                  bg-light-card dark:bg-dark-card
+                  text-light-text dark:text-dark-text
+                  focus:outline-none focus:ring-2 focus:ring-amu-primary/30
+                  transition-all
+                "
               >
                 {questions.map((q) => (
                   <option key={q._id} value={q._id}>{q.title}</option>
@@ -229,47 +219,68 @@ export default function InterviewRoom() {
 
           <QuestionPanel question={selectedQuestion} />
 
-          <div className="mt-6 bg-white dark:bg-dark-card border border-light-border dark:border-dark-border p-4 rounded-xl">
-            <div className="mt-6">
-              <CodeEditor question={selectedQuestion} />
+          <div className="bg-light-card dark:bg-dark-card border border-light-border dark:border-dark-border rounded-xl overflow-hidden">
+            <CodeEditor question={selectedQuestion} />
+          </div>
+        </div>
+
+        {/* RIGHT: Sidebar */}
+        <div className="w-[300px] border-l border-light-border dark:border-dark-border flex flex-col overflow-auto">
+
+          {/* Participants */}
+          <div className="p-5 border-b border-light-border dark:border-dark-border">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-light-muted dark:text-dark-muted mb-3">
+              Participants
+            </p>
+            <div className="space-y-2">
+              {participants.map((p) => {
+                const color = getColorForId(p.userId);
+                const isYou = user && p.userId === user._id;
+                return (
+                  <div key={p.socketId} className="flex items-center gap-2.5 text-[12px]">
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0, display: "inline-block" }} />
+                    <span className="font-medium text-light-text dark:text-dark-text">{p.name}</span>
+                    <span className="text-light-muted dark:text-dark-muted capitalize">{p.role}{isYou ? " · you" : ""}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-        </div>
-
-        <div className="w-[340px] border-l border-light-border dark:border-dark-border p-6">
-
-          <div className="mb-6">
-            <h3 className="font-semibold mb-3">Participants</h3>
-            {participants.map((p) => {
-              const color = getColorForId(p.userId);
-              const isYou = user && p.userId === user._id;
-              return (
-                <div key={p.socketId} className="flex items-center gap-2 text-sm mb-2">
-                  <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                  <span>{p.name}</span>
-                  <span className="text-xs opacity-60">({p.role}{isYou ? ", you" : ""})</span>
-                </div>
-              );
-            })}
-          </div>
-
+          {/* Join Requests */}
           {user?.role === "interviewer" && requests.length > 0 && (
-            <div>
-              <h3 className="font-semibold mb-3">Join Requests</h3>
-              {requests.map((req) => (
-                <div key={req.socketId} className="bg-white dark:bg-dark-card border border-light-border dark:border-dark-border p-3 rounded-lg mb-3">
-                  <p className="text-sm mb-2">{req.user.name}</p>
-                  <div className="flex gap-2">
-                    <button onClick={() => approveUser(req)} className="bg-green-600 text-white px-3 py-1 rounded">Approve</button>
-                    <button onClick={() => rejectUser(req)} className="bg-red-600 text-white px-3 py-1 rounded">Reject</button>
+            <div className="p-5 border-b border-light-border dark:border-dark-border">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-light-muted dark:text-dark-muted mb-3">
+                Join Requests
+              </p>
+              <div className="space-y-2.5">
+                {requests.map((req) => (
+                  <div key={req.socketId} className="bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-lg p-3">
+                    <p className="text-[12px] font-medium text-light-text dark:text-dark-text mb-2">{req.user.name}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => approveUser(req)}
+                        className="flex-1 py-1.5 rounded-md text-[11px] font-medium bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectUser(req)}
+                        className="flex-1 py-1.5 rounded-md text-[11px] font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
-          <NotesPanel />
+          {/* Notes */}
+          <div className="flex-1 p-5">
+            <NotesPanel />
+          </div>
 
         </div>
       </main>
